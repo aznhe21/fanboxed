@@ -80,7 +80,7 @@ function easyFormat(fmt, obj) {
 }
 
 function extractExt(s) {
-  return s.replace(/^.*\.(\w+)$/, '$1');
+  return s.replace(/^.*\.(\w+)$/, "$1");
 }
 
 let style;
@@ -143,7 +143,7 @@ async function downloadAsZip(metadata, urls, progress) {
     const url = urls[i];
     const blob = await download(url);
 
-    const padded = i.toString().padStart(3, '0');
+    const padded = i.toString().padStart(3, "0");
     const name = `page_${padded}.${extractExt(url)}`;
     zip.file(name, blob);
     progress(++current, total);
@@ -152,13 +152,13 @@ async function downloadAsZip(metadata, urls, progress) {
 }
 
 function collectMetadata() {
-  const article = document.querySelector('#root > div > div > div > div > div > div > div > article');
+  const article = document.querySelector("#root > div > div > div > div > div > div > div > article");
   const md = {};
 
-  md.author = document.querySelector('#root > div > div > div > div > div > div > div > div > div > div > h1 > a').textContent;
-  md.title = article.querySelector(':scope > div > h1').textContent;
+  md.author = document.querySelector("#root > div > div > div > div > div > div > div > div > div > div > h1 > a").textContent;
+  md.title = article.querySelector(":scope > div > h1").textContent;
 
-  const date = article.querySelector(':scope > div > h1 + div').textContent;
+  const date = article.querySelector(":scope > div > h1 + div").textContent;
   const m = date.match(/(\d+)年(\d+)月(\d+)日 (\d+):(\d+)/);
   md.year = Number.parseInt(m[1], 10);
   md.month = Number.parseInt(m[2], 10);
@@ -166,9 +166,9 @@ function collectMetadata() {
   md.hour = Number.parseInt(m[4], 10);
   md.minute = Number.parseInt(m[5], 10);
 
-  const coverElement = article.querySelector(':scope > div > div > div > div > div > div[style]');
+  const coverElement = article.querySelector(":scope > div > div > div > div > div > div[style]");
   if (coverElement) {
-    md.cover = JSON.parse(coverElement.style.backgroundImage.replace(/^url\(|\)$/g, ''));
+    md.cover = JSON.parse(coverElement.style.backgroundImage.replace(/^url\(|\)$/g, ""));
   }
 
   let description = "";
