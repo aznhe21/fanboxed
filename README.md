@@ -1,5 +1,7 @@
 # Fanboxed - Fanbox Downloader
 
+![Demo video](./fanboxed.gif)
+
 Fanboxの各記事をZIPファイルとしてダウンロードするためのユーザースクリプトです。
 
 ## インストール
