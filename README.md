@@ -1,4 +1,4 @@
-# Fanboxd - Fanbox Downloader
+# Fanboxed - Fanbox Downloader
 
 Fanboxの各記事をZIPファイルとしてダウンロードするためのユーザースクリプトです。
 
