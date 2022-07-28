@@ -9,6 +9,7 @@
     "JSZip": "readonly"
   },
   "rules": {
+    "no-console": "error",
     "quotes": ["error", "double"]
   }
 }
