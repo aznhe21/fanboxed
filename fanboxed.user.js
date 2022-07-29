@@ -282,4 +282,11 @@ const observer = new MutationObserver(() => {
   downloadButton.addEventListener("click", startDownload);
   likeButton.after(downloadButton);
 });
-observer.observe(document.getElementById("root"), { childList: true, subtree: true });
+(() => {
+  const root = document.getElementById("root");
+  if (!root) {
+    return;
+  }
+
+  observer.observe(root, { childList: true, subtree: true });
+})();
