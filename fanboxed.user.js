@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name     Fanboxed
-// @version  1
+// @version  1.0.1
 // @grant    GM.xmlHttpRequest
 // @require  https://cdnjs.cloudflare.com/ajax/libs/jszip/3.9.1/jszip.min.js
 // @include  https://*.fanbox.cc/*
