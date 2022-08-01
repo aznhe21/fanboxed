@@ -1,9 +1,12 @@
 // ==UserScript==
-// @name     Fanboxed
-// @version  1.0.1
-// @grant    GM.xmlHttpRequest
-// @require  https://cdnjs.cloudflare.com/ajax/libs/jszip/3.9.1/jszip.min.js
-// @include  https://*.fanbox.cc/*
+// @name        Fanboxed
+// @version     1.0.1
+// @homepageURL https://github.com/aznhe21/fanboxed
+// @updateURL   https://raw.githubusercontent.com/aznhe21/fanboxed/master/fanboxed.user.js
+// @downloadURL https://raw.githubusercontent.com/aznhe21/fanboxed/master/fanboxed.user.js
+// @grant       GM.xmlHttpRequest
+// @require     https://cdnjs.cloudflare.com/ajax/libs/jszip/3.9.1/jszip.min.js
+// @include     https://*.fanbox.cc/*
 // ==/UserScript==
 
 const FORMAT_FILENAME = "[{year:04}-{month:02}-{day:02}] [{author}] {title}.zip";
