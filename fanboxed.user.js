@@ -18,7 +18,10 @@ const LOCALES = {
     format_value_not_found: "'{name}'という名前の値はありません",
     format_invalid_spec: "'{spec}'は形式化文字列として不正です",
 
-    unexpected_error_no_metadata: "予期せぬエラー：メタデータがない",
+    api_failed: "API呼び出しに失敗しました",
+    api_error: "API呼び出しに失敗しました：{error}",
+
+    article_restricted: "記事の閲覧が制限されています",
 
     download_failed: "'{url}'のダウンロードに失敗しました",
     download_error: "ダウンロード中にエラーが発生しました：{error}",
@@ -31,7 +34,10 @@ const LOCALES = {
     format_value_not_found: "No value named '{name}'",
     format_invalid_spec: "Invalid format '{spec}'",
 
-    unexpected_error_no_metadata: "Unexpected error: no metadata",
+    api_failed: "Failed to call an API",
+    api_error: "Failed to call an API: {error}",
+
+    article_restricted: "The article is restricted",
 
     download_failed: "Failed to download '{url}'",
     download_error: "Error occured during download: {error}",
@@ -103,25 +109,100 @@ function addStyle(css) {
   style.append(css + "\n");
 }
 
-function download(url) {
+function request(url, options, errorMessage) {
   return new Promise((resolve, reject) => {
     GM.xmlHttpRequest({
       method: "GET",
       url,
-      responseType: "arraybuffer",
+      ...options,
       onload(res) {
         resolve(res.response);
       },
       onerror() {
-        reject(new Error(localize("download_failed", { url })));
+        reject(new Error(errorMessage()));
       },
     });
   });
 }
 
-async function downloadAsZip(metadata, urls, progress) {
-  let total = urls.length;
-  if (metadata.cover) {
+async function download(url) {
+  return await request(
+    url,
+    {
+      responseType: "arraybuffer",
+    },
+    () => localize("download_failed", { url }),
+  );
+}
+
+async function requestInfo(postId) {
+  const res = await request(
+    `https://api.fanbox.cc/post.info?postId=${postId}`,
+    {
+      headers: {
+        Origin: "https://www.fanbox.cc",
+      },
+      responseType: "json",
+    },
+    () => localize("api_failed"),
+  );
+  if (res.error) {
+    throw new Error(localize("api_error", { error: res.error }));
+  }
+
+  const raw = res.body;
+  if (!raw) {
+    throw new Error(localize("api_failed"));
+  }
+
+  if (raw.isRestricted) {
+    throw new Error(localize("article_restricted"));
+  }
+
+  let description = "";
+  let images = [];
+  if (raw.body.blocks) {
+    for (const block of raw.body.blocks) {
+      switch (block.type) {
+        case "header":
+          description += "\n" + block.text + "\n";
+          break;
+        case "p":
+          description += block.text + "\n";
+          break;
+
+        case "image":
+          images.push(raw.body.imageMap[block.imageId].originalUrl);
+          break;
+      }
+    }
+
+    description = description.trim().replace(/\n{3,}/g, "\n\n");
+  } else {
+    description = raw.body.text;
+    images = raw.body.images.map(i => i.originalUrl);
+  }
+
+  const date = new Date(raw.publishedDatetime);
+  return {
+    author: raw.user.name,
+    title: raw.title,
+
+    year: date.getFullYear(),
+    month: date.getMonth() + 1,
+    day: date.getDate(),
+    hour: date.getHours(),
+    minute: date.getMinutes(),
+
+    cover: raw.coverImageUrl,
+    description,
+    images,
+  };
+}
+
+async function downloadAsZip(info, progress) {
+  let total = info.images.length;
+  if (info.cover) {
     total++;
   }
   let done = 0;
@@ -130,22 +211,22 @@ async function downloadAsZip(metadata, urls, progress) {
   const zip = new JSZip();
 
   // add a description file
-  if (metadata.description) {
-    zip.file("description.txt", metadata.description);
+  if (info.description) {
+    zip.file("description.txt", info.description);
   }
 
   // download a cover image
-  if (metadata.cover) {
-    const blob = await download(metadata.cover);
+  if (info.cover) {
+    const blob = await download(info.cover);
 
-    const name = `cover.${extractExt(metadata.cover)}`;
+    const name = `cover.${extractExt(info.cover)}`;
     zip.file(name, blob);
     progress(++done, total);
   }
 
   // download content images
-  for (let i = 0; i < urls.length; i++) {
-    const url = urls[i];
+  for (let i = 0; i < info.images.length; i++) {
+    const url = info.images[i];
     const blob = await download(url);
 
     const padded = (i + 1).toString().padStart(3, "0");
@@ -156,75 +237,25 @@ async function downloadAsZip(metadata, urls, progress) {
   return await zip.generateAsync({ type: "blob" });
 }
 
-function collectMetadata() {
-  const article = document.querySelector("#root > div > div > div > div > div > div > div > article");
-  const md = {};
-
-  md.author = document.querySelector("#root > div > div > div > div > div > div > div > div > div > div > h1 > a").textContent;
-  md.title = article.querySelector(":scope > div > h1").textContent;
-
-  const date = article.querySelector(":scope > div > h1 + div").textContent;
-  const m = date.match(/(\d+)年(\d+)月(\d+)日 (\d+):(\d+)/);
-  md.year = Number.parseInt(m[1], 10);
-  md.month = Number.parseInt(m[2], 10);
-  md.day = Number.parseInt(m[3], 10);
-  md.hour = Number.parseInt(m[4], 10);
-  md.minute = Number.parseInt(m[5], 10);
-
-  const coverElement = article.querySelector(":scope > div > div > div > div > div > div[style]");
-  if (coverElement) {
-    md.cover = JSON.parse(coverElement.style.backgroundImage.replace(/^url\(|\)$/g, ""));
-  }
-
-  let description = "";
-  for (const e of article.querySelectorAll(":scope > div")) {
-    if (e.querySelector(":scope > h1") !== null) {
-      // header
-      continue;
-    }
-
-    let targets;
-    const draftRoot = e.querySelector(":scope > .DraftEditor-root");
-    if (draftRoot) {
-      targets = [...draftRoot.querySelectorAll(":scope > .DraftEditor-editorContainer > .public-DraftEditor-content > div > :not(figure)")];
-    } else {
-      targets = [e];
-    }
-
-    for (const t of targets) {
-      const text = t.innerText;
-      if (text === "") {
-        continue;
-      }
-
-      description += text + "\n";
-    }
-  }
-  md.description = description.trim() + "\n";
-
-  return md;
+function extractPostId(url) {
+  const m = url.match(/\/posts\/(\d+)/);
+  return m ? Number.parseInt(m[1], 10) : null;
 }
 
-async function startDownload() {
-  const downloadButton = this;
-
-  const metadata = collectMetadata();
-  if (!metadata) {
-    alert(localize("unexpected_error_no_metadata"));
+async function startDownload(downloadButton, postId) {
+  let info
+  try {
+    info = await requestInfo(postId);
+  } catch (e) {
+    alert(e.message);
     return;
   }
-
-  const urls = Array.from(
-    document.querySelectorAll("a[href^='https://downloads.fanbox.cc/images/post/']"),
-    a => a.href,
-  );
 
   downloadButton.disabled = true;
   let bin;
   try {
     bin = await downloadAsZip(
-      metadata,
-      urls,
+      info,
       (done, total) => {
         downloadButton.textContent = done < total
           ? localize("text_download_progress", { current: done + 1, total })
@@ -240,7 +271,7 @@ async function startDownload() {
 
   const dl = document.createElement("a");
   dl.href = URL.createObjectURL(bin);
-  dl.download = easyFormat(FORMAT_FILENAME, metadata);
+  dl.download = easyFormat(FORMAT_FILENAME, info);
   document.body.append(dl);
   dl.click();
   dl.remove();
@@ -282,11 +313,18 @@ const observer = new MutationObserver(() => {
     return;
   }
 
+  const postId = extractPostId(location.href);
+  if (postId === null) {
+    return;
+  }
+
   const downloadButton = document.createElement("button");
   downloadButton.id = "fanboxed-download-button";
   downloadButton.className = "fanboxed-button";
   downloadButton.textContent = localize("text_download");
-  downloadButton.addEventListener("click", startDownload);
+  downloadButton.addEventListener("click", () => {
+    startDownload(downloadButton, postId);
+  });
   likeButton.after(downloadButton);
 });
 (() => {
