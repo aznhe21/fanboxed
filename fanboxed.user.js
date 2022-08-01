@@ -146,7 +146,7 @@ async function downloadAsZip(metadata, urls, progress) {
     const url = urls[i];
     const blob = await download(url);
 
-    const padded = i.toString().padStart(3, "0");
+    const padded = (i + 1).toString().padStart(3, "0");
     const name = `page_${padded}.${extractExt(url)}`;
     zip.file(name, blob);
     progress(++current, total);
