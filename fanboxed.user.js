@@ -25,6 +25,7 @@ const LOCALES = {
 
     text_download: "ダウンロード",
     text_download_progress: "ダウンロード中... （{current} / {total}）",
+    text_download_zip: "ZIPを生成中...",
   },
   "en": {
     format_value_not_found: "No value named '{name}'",
@@ -37,6 +38,7 @@ const LOCALES = {
 
     text_download: "Download",
     text_download_progress: "Downloading... ({current} / {total})",
+    text_download_zip: "Generating ZIP...",
   },
 };
 
@@ -122,8 +124,8 @@ async function downloadAsZip(metadata, urls, progress) {
   if (metadata.cover) {
     total++;
   }
-  let current = 0;
-  progress(current, total);
+  let done = 0;
+  progress(done, total);
 
   const zip = new JSZip();
 
@@ -138,7 +140,7 @@ async function downloadAsZip(metadata, urls, progress) {
 
     const name = `cover.${extractExt(metadata.cover)}`;
     zip.file(name, blob);
-    progress(++current, total);
+    progress(++done, total);
   }
 
   // download content images
@@ -149,7 +151,7 @@ async function downloadAsZip(metadata, urls, progress) {
     const padded = (i + 1).toString().padStart(3, "0");
     const name = `page_${padded}.${extractExt(url)}`;
     zip.file(name, blob);
-    progress(++current, total);
+    progress(++done, total);
   }
   return await zip.generateAsync({ type: "blob" });
 }
@@ -223,8 +225,10 @@ async function startDownload() {
     bin = await downloadAsZip(
       metadata,
       urls,
-      (current, total) => {
-        downloadButton.textContent = localize("text_download_progress", { current, total });
+      (done, total) => {
+        downloadButton.textContent = done < total
+          ? localize("text_download_progress", { current: done + 1, total })
+          : localize("text_download_zip");
       },
     );
   } catch (e) {
