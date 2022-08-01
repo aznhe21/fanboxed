@@ -111,7 +111,7 @@ function download(url) {
         resolve(res.response);
       },
       onerror() {
-        reject(localize("download_failed", { url }));
+        reject(new Error(localize("download_failed", { url })));
       },
     });
   });
@@ -227,8 +227,8 @@ async function startDownload() {
         downloadButton.textContent = localize("text_download_progress", { current, total });
       },
     );
-  } catch (error) {
-    alert(localize("download_error", { error }));
+  } catch (e) {
+    alert(localize("download_error", { error: e.message }));
     downloadButton.disabled = false;
     downloadButton.textContent = localize("text_download");
     return;
