@@ -9,6 +9,7 @@
     "JSZip": "readonly"
   },
   "rules": {
+    "comma-dangle": ["error", "always-multiline"],
     "indent": ["error", 2, {"SwitchCase": 1}],
     "no-console": "error",
     "quotes": ["error", "double"]
