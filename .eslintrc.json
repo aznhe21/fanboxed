@@ -12,6 +12,8 @@
     "comma-dangle": ["error", "always-multiline"],
     "indent": ["error", 2, {"SwitchCase": 1}],
     "no-console": "error",
+    "no-empty": ["error", {"allowEmptyCatch": true}],
+    "no-unused-vars": ["error", {"argsIgnorePattern": "^_"}],
     "quotes": ["error", "double"]
   }
 }

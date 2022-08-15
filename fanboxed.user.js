@@ -135,149 +135,197 @@ async function download(url) {
   );
 }
 
-async function requestInfo(postId) {
-  const res = await request(
-    `https://api.fanbox.cc/post.info?postId=${postId}`,
-    {
-      headers: {
-        Origin: "https://www.fanbox.cc",
-      },
-      responseType: "json",
-    },
-    () => localize("api_failed"),
-  );
-  if (res.error) {
-    throw new Error(localize("api_error", { error: res.error }));
+//
+
+const DownloadManager = new class {
+  // queue: number[];
+  // observers: DownloadObserver[];
+  // currentStatus: { done: number; total: number; };
+
+  constructor() {
+    this.queue = [];
+    this.observers = [];
+    this.currentStatus = { done: 0, total: 0 };
   }
 
-  const raw = res.body;
-  if (!raw) {
-    throw new Error(localize("api_failed"));
+  subscribe(observer) {
+    this.observers.push(observer);
   }
 
-  if (raw.isRestricted) {
-    throw new Error(localize("article_restricted"));
-  }
-
-  let description = "";
-  let images = [];
-  if (raw.body.blocks) {
-    for (const block of raw.body.blocks) {
-      switch (block.type) {
-        case "header":
-          description += "\n" + block.text + "\n";
-          break;
-        case "p":
-          description += block.text + "\n";
-          break;
-
-        case "image":
-          images.push(raw.body.imageMap[block.imageId].originalUrl);
-          break;
-      }
+  download(postId) {
+    if (this.queue.indexOf(postId) >= 0) {
+      return;
     }
 
-    description = description.trim().replace(/\n{3,}/g, "\n\n");
-  } else {
-    description = raw.body.text;
-    images = raw.body.images.map(i => i.originalUrl);
+    this.queue.push(postId);
+    if (this.queue.length === 1) {
+      // ignore returned Promise
+      this._downloadTask();
+    }
+
+    this._notifyProgress(null);
   }
 
-  const date = new Date(raw.publishedDatetime);
-  return {
-    author: raw.user.name,
-    title: raw.title,
+  // private
 
-    year: date.getFullYear(),
-    month: date.getMonth() + 1,
-    day: date.getDate(),
-    hour: date.getHours(),
-    minute: date.getMinutes(),
+  _notifyProgress(postId) {
+    for (let i = 0; i < this.observers.length;) {
+      const ob = this.observers[i];
+      if (!ob.isAlive) {
+        this.observers.splice(i, 1);
+        continue;
+      }
 
-    cover: raw.coverImageUrl,
-    description,
-    images,
-  };
-}
-
-async function downloadAsZip(info, progress) {
-  let total = info.images.length;
-  if (info.cover) {
-    total++;
-  }
-  let done = 0;
-  progress(done, total);
-
-  const zip = new JSZip();
-
-  // add a description file
-  if (info.description) {
-    zip.file("description.txt", info.description);
+      try {
+        ob.onProgress(postId);
+      } catch (e) {
+      }
+      i++;
+    }
   }
 
-  // download a cover image
-  if (info.cover) {
-    const blob = await download(info.cover);
-
-    const name = `cover.${extractExt(info.cover)}`;
-    zip.file(name, blob);
-    progress(++done, total);
+  _reportError(message) {
+    // do not block following downloads
+    setTimeout(() => alert(message), 0);
   }
 
-  // download content images
-  for (let i = 0; i < info.images.length; i++) {
-    const url = info.images[i];
-    const blob = await download(url);
+  async _downloadTask() {
+    while (this.queue.length > 0) {
+      try {
+        await this._downloadPost(this.queue[0]);
+      } catch (e) {
+        this._reportError(e.message);
+      }
 
-    const padded = (i + 1).toString().padStart(3, "0");
-    const name = `page_${padded}.${extractExt(url)}`;
-    zip.file(name, blob);
-    progress(++done, total);
+      this.queue.shift();
+      this._notifyProgress(null);
+    }
   }
-  return await zip.generateAsync({ type: "blob" });
-}
+
+  async _requestInfo(postId) {
+    const res = await request(
+      `https://api.fanbox.cc/post.info?postId=${postId}`,
+      {
+        headers: {
+          Origin: "https://www.fanbox.cc",
+        },
+        responseType: "json",
+      },
+      () => localize("api_failed"),
+    );
+    if (res.error) {
+      throw new Error(localize("api_error", { error: res.error }));
+    }
+
+    const raw = res.body;
+    if (!raw) {
+      throw new Error(localize("api_failed"));
+    }
+
+    if (raw.isRestricted) {
+      throw new Error(localize("article_restricted"));
+    }
+
+    let description = "";
+    let images = [];
+    if (raw.body.blocks) {
+      for (const block of raw.body.blocks) {
+        switch (block.type) {
+          case "header":
+            description += "\n" + block.text + "\n";
+            break;
+          case "p":
+            description += block.text + "\n";
+            break;
+
+          case "image":
+            images.push(raw.body.imageMap[block.imageId].originalUrl);
+            break;
+        }
+      }
+
+      description = description.trim().replace(/\n{3,}/g, "\n\n");
+    } else {
+      description = raw.body.text;
+      images = raw.body.images.map(i => i.originalUrl);
+    }
+
+    const date = new Date(raw.publishedDatetime);
+    return {
+      author: raw.user.name,
+      title: raw.title,
+
+      year: date.getFullYear(),
+      month: date.getMonth() + 1,
+      day: date.getDate(),
+      hour: date.getHours(),
+      minute: date.getMinutes(),
+
+      cover: raw.coverImageUrl,
+      description,
+      images,
+    };
+  }
+
+  async _downloadPost(postId) {
+    const info = await this._requestInfo(postId);
+    this.currentStatus = { done: 0, total: info.images.length };
+    if (info.cover) {
+      this.currentStatus.total++;
+    }
+    this._notifyProgress(postId);
+
+    let bin;
+    try {
+      const zip = new JSZip();
+
+      // add a description file
+      if (info.description) {
+        zip.file("description.txt", info.description);
+      }
+
+      // download a cover image
+      if (info.cover) {
+        const blob = await download(info.cover);
+
+        const name = `cover.${extractExt(info.cover)}`;
+        zip.file(name, blob);
+
+        this.currentStatus.done++;
+        this._notifyProgress(postId);
+      }
+
+      // download content images
+      for (let i = 0; i < info.images.length; i++) {
+        const url = info.images[i];
+        const blob = await download(url);
+
+        const padded = (i + 1).toString().padStart(3, "0");
+        const name = `page_${padded}.${extractExt(url)}`;
+        zip.file(name, blob);
+
+        this.currentStatus.done++;
+        this._notifyProgress(postId);
+      }
+
+      bin = await zip.generateAsync({ type: "blob" });
+    } catch (e) {
+      throw new Error(localize("download_error", { error: e.message }));
+    }
+
+    // fire the download
+    const dl = document.createElement("a");
+    dl.href = URL.createObjectURL(bin);
+    dl.download = easyFormat(FORMAT_FILENAME, info);
+    document.body.append(dl);
+    dl.click();
+    dl.remove();
+  }
+};
 
 function extractPostId(url) {
   const m = url.match(/\/posts\/(\d+)/);
   return m ? Number.parseInt(m[1], 10) : null;
-}
-
-async function startDownload(downloadButton, postId) {
-  let info
-  try {
-    info = await requestInfo(postId);
-  } catch (e) {
-    alert(e.message);
-    return;
-  }
-
-  downloadButton.disabled = true;
-  let bin;
-  try {
-    bin = await downloadAsZip(
-      info,
-      (done, total) => {
-        downloadButton.textContent = done < total
-          ? localize("text_download_progress", { current: done + 1, total })
-          : localize("text_download_zip");
-      },
-    );
-  } catch (e) {
-    alert(localize("download_error", { error: e.message }));
-    downloadButton.disabled = false;
-    downloadButton.textContent = localize("text_download");
-    return;
-  }
-
-  const dl = document.createElement("a");
-  dl.href = URL.createObjectURL(bin);
-  dl.download = easyFormat(FORMAT_FILENAME, info);
-  document.body.append(dl);
-  dl.click();
-  dl.remove();
-
-  downloadButton.disabled = false;
-  downloadButton.textContent = localize("text_download");
 }
 
 addStyle(`
@@ -323,9 +371,29 @@ const observer = new MutationObserver(() => {
   downloadButton.className = "fanboxed-button";
   downloadButton.textContent = localize("text_download");
   downloadButton.addEventListener("click", () => {
-    startDownload(downloadButton, postId);
+    DownloadManager.download(postId);
   });
   likeButton.after(downloadButton);
+  const updateText = () => {
+    if (DownloadManager.queue.length === 0) {
+      downloadButton.textContent = localize("text_download");
+    } else {
+      const { done, total } = DownloadManager.currentStatus;
+      downloadButton.textContent = done < total
+        ? localize("text_download_progress", { current: done + 1, total })
+        : localize("text_download_zip");
+    }
+  };
+
+  DownloadManager.subscribe({
+    get isAlive() {
+      return document.contains(downloadButton);
+    },
+    onProgress(_postId) {
+      updateText();
+    },
+  });
+  updateText();
 });
 (() => {
   const root = document.getElementById("root");
