@@ -170,6 +170,11 @@ const DownloadManager = new class {
 
   // private
 
+  _beforeUnload(e) {
+    e.preventDefault();
+    return e.returnValue = "";
+  }
+
   _notifyProgress(postId) {
     for (let i = 0; i < this.observers.length;) {
       const ob = this.observers[i];
@@ -192,6 +197,8 @@ const DownloadManager = new class {
   }
 
   async _downloadTask() {
+    window.addEventListener("beforeunload", this._beforeUnload);
+
     while (this.queue.length > 0) {
       try {
         await this._downloadPost(this.queue[0]);
@@ -202,6 +209,8 @@ const DownloadManager = new class {
       this.queue.shift();
       this._notifyProgress(null);
     }
+
+    window.removeEventListener("beforeunload", this._beforeUnload);
   }
 
   async _requestInfo(postId) {
