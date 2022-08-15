@@ -27,6 +27,7 @@ const LOCALES = {
     download_error: "ダウンロード中にエラーが発生しました：{error}",
 
     text_download: "ダウンロード",
+    text_download_pending: "ダウンロード待機中（残り{pending}件）",
     text_download_progress: "ダウンロード中... （{current} / {total}）",
     text_download_zip: "ZIPを生成中...",
   },
@@ -43,6 +44,7 @@ const LOCALES = {
     download_error: "Error occured during download: {error}",
 
     text_download: "Download",
+    text_download_pending: "Pending downloads ({pending} remaining)",
     text_download_progress: "Downloading... ({current} / {total})",
     text_download_zip: "Generating ZIP...",
   },
@@ -323,13 +325,130 @@ const DownloadManager = new class {
   }
 };
 
+class DownloadButton {
+  // postId: number;
+  // button: HTMLButtonElement;
+
+  constructor(postId, insertAfter) {
+    this.postId = postId;
+
+    this.button = document.createElement("button");
+    this.button.addEventListener("click", e => {
+      e.preventDefault();
+      DownloadManager.download(this.postId);
+    });
+    insertAfter.after(this.button);
+
+    DownloadManager.subscribe(this);
+    this.updateText();
+  }
+
+  updateText() {
+    const pending = DownloadManager.queue.findIndex(i => this.postId === i);
+    switch (pending) {
+      case -1:
+        this.button.textContent = localize("text_download");
+        this.button.disabled = false;
+        break;
+
+      case 0: {
+        const { done, total } = DownloadManager.currentStatus;
+        this.button.textContent = done < total
+          ? localize("text_download_progress", { current: done + 1, total })
+          : localize("text_download_zip");
+        this.button.disabled = true;
+        break;
+      }
+
+      default:
+        this.button.textContent = localize("text_download_pending", { pending });
+        this.button.disabled = true;
+        break;
+    }
+  }
+
+  // DownloadObserver
+
+  get isAlive() {
+    return document.contains(this.button);
+  }
+
+  onProgress(postId) {
+    if (this.postId === postId || postId === null) {
+      this.updateText();
+    }
+  }
+}
+
+class PostDownloadButton extends DownloadButton {
+  constructor(postId, insertAfter) {
+    super(postId, insertAfter);
+
+    this.button.id = "fanboxed-download-button";
+  }
+}
+
+class ListDownloadButton extends DownloadButton {
+  constructor(postId, insertAfter) {
+    super(postId, insertAfter);
+
+    this.button.classList.add("fanboxed-button");
+  }
+}
+
 function extractPostId(url) {
   const m = url.match(/\/posts\/(\d+)/);
   return m ? Number.parseInt(m[1], 10) : null;
 }
 
+function handlePostPage(likeButton) {
+  if (document.querySelector("article a[href$='/plans']")) {
+    return;
+  }
+
+  const postId = extractPostId(location.href);
+  if (postId === null) {
+    return;
+  }
+
+  new PostDownloadButton(postId, likeButton);
+}
+
+function handleListPage(cards) {
+  for (const card of cards) {
+    if (card.querySelector(".fanboxed-button")) {
+      continue;
+    }
+
+    const likeButton = card.querySelector(":scope > div > div > div > button, :scope > div > div > button");
+    if (!likeButton) {
+      continue;
+    }
+
+    const postId = extractPostId(card.href);
+    if (!postId) {
+      continue;
+    }
+
+    new ListDownloadButton(postId, likeButton);
+  }
+}
+
 addStyle(`
 .fanboxed-button {
+	line-height: inherit;
+	width: fit-content;
+	height: 24px;
+	padding: 0px 8px;
+	border: 1px solid #999999;
+	border-radius: 12px;
+	background-color: white;
+	background-repeat: no-repeat;
+	background-position: 8px center;
+	color: #999999;
+}
+
+#fanboxed-download-button {
   box-sizing: border-box;
   display: flex;
   justify-content: center;
@@ -348,52 +467,22 @@ addStyle(`
 `);
 
 const observer = new MutationObserver(() => {
-  if (document.getElementById("fanboxed-download-button")) {
-    return;
-  }
-
   const likeButton = document.querySelector("#root > div > div > div > div > div > div > div > article + div > div > div > div > button");
-  if (!likeButton) {
-    return;
-  }
-
-  if (document.querySelector("article a[href$='/plans']")) {
-    return;
-  }
-
-  const postId = extractPostId(location.href);
-  if (postId === null) {
-    return;
-  }
-
-  const downloadButton = document.createElement("button");
-  downloadButton.id = "fanboxed-download-button";
-  downloadButton.className = "fanboxed-button";
-  downloadButton.textContent = localize("text_download");
-  downloadButton.addEventListener("click", () => {
-    DownloadManager.download(postId);
-  });
-  likeButton.after(downloadButton);
-  const updateText = () => {
-    if (DownloadManager.queue.length === 0) {
-      downloadButton.textContent = localize("text_download");
-    } else {
-      const { done, total } = DownloadManager.currentStatus;
-      downloadButton.textContent = done < total
-        ? localize("text_download_progress", { current: done + 1, total })
-        : localize("text_download_zip");
+  if (likeButton) {
+    if (document.getElementById("fanboxed-download-button")) {
+      return;
     }
-  };
 
-  DownloadManager.subscribe({
-    get isAlive() {
-      return document.contains(downloadButton);
-    },
-    onProgress(_postId) {
-      updateText();
-    },
-  });
-  updateText();
+    return handlePostPage(likeButton);
+  }
+
+  const cards = document.querySelectorAll(`
+    #root > div > div > div > div > div > div > div > div > a,
+    #root > div > div > div > div > div > div > div > a
+  `);
+  if (cards.length > 0) {
+    return handleListPage(cards);
+  }
 });
 (() => {
   const root = document.getElementById("root");
