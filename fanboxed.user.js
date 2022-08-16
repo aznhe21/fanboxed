@@ -28,6 +28,7 @@ const LOCALES = {
 
     text_download: "ダウンロード",
     text_download_pending: "ダウンロード待機中（残り{pending}件）",
+    text_download_setup: "ダウンロード準備中...",
     text_download_progress: "ダウンロード中... （{current} / {total}）",
     text_download_zip: "ZIPを生成中...",
   },
@@ -45,6 +46,7 @@ const LOCALES = {
 
     text_download: "Download",
     text_download_pending: "Pending downloads ({pending} remaining)",
+    text_download_setup: "Preparing to download...",
     text_download_progress: "Downloading... ({current} / {total})",
     text_download_zip: "Generating ZIP...",
   },
@@ -279,8 +281,10 @@ const DownloadManager = new class {
   }
 
   async _downloadPost(postId) {
+    this.currentStatus = { done: 0, total: Infinity };
+
     const info = await this._requestInfo(postId);
-    this.currentStatus = { done: 0, total: info.images.length };
+    this.currentStatus.total = info.images.length;
     if (info.cover) {
       this.currentStatus.total++;
     }
@@ -362,9 +366,11 @@ class DownloadButton {
 
       case 0: {
         const { done, total } = DownloadManager.currentStatus;
-        this.button.textContent = done < total
-          ? localize("text_download_progress", { current: done + 1, total })
-          : localize("text_download_zip");
+        this.button.textContent = total === Infinity
+          ? localize("text_download_setup")
+          : done < total
+            ? localize("text_download_progress", { current: done + 1, total })
+            : localize("text_download_zip");
         this.button.disabled = true;
         break;
       }
