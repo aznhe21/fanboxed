@@ -260,7 +260,7 @@ const DownloadManager = new class {
       description = description.trim().replace(/\n{3,}/g, "\n\n");
     } else {
       description = raw.body.text;
-      images = raw.body.images.map(i => i.originalUrl);
+      images = raw.body.images ? raw.body.images.map(i => i.originalUrl) : [];
     }
 
     const date = new Date(raw.publishedDatetime);
