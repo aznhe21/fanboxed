@@ -86,7 +86,7 @@ function easyFormat(fmt, obj) {
     }
 
     if (!/^0\d+$/.test(spec)) {
-      return new Error(localize("format_invalid_spec", { spec }));
+      throw new Error(localize("format_invalid_spec", { spec }));
     }
 
     const n = Number.parseInt(spec, 10);
