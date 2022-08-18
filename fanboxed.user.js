@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name        Fanboxed
-// @version     1.0.1
+// @version     1.1.0
 // @homepageURL https://github.com/aznhe21/fanboxed
 // @updateURL   https://raw.githubusercontent.com/aznhe21/fanboxed/master/fanboxed.user.js
 // @downloadURL https://raw.githubusercontent.com/aznhe21/fanboxed/master/fanboxed.user.js
