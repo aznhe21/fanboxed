@@ -14,58 +14,57 @@ const FORMAT_FILENAME = "[{year:04}-{month:02}-{day:02}] [{author}] {title}.zip"
 // locale
 
 /**
- * @typedef {Object} Locale
- * @property {string} format_value_not_found
- * @property {string} format_invalid_spec
- * @property {string} api_failed
- * @property {string} api_error
- * @property {string} article_restricted
- * @property {string} download_failed
- * @property {string} download_error
- * @property {string} text_download
- * @property {string} text_download_pending
- * @property {string} text_download_setup
- * @property {string} text_download_progress
- * @property {string} text_download_zip
+ * @typedef {{
+ *   "format.value_not_found": string,
+ *   "format.invalid_spec": string,
+ *   "api.failed": string,
+ *   "api.error": string,
+ *   "download.restricted": string,
+ *   "download.failed": string,
+ *   "download.error": string,
+ *   "dl_button.start": string,
+ *   "dl_button.pending": string,
+ *   "dl_button.preparing": string,
+ *   "dl_button.downloading": string,
+ *   "dl_button.generating_zip": string,
+ * }} Locale
  */
 
 /** @type {Record.<string, Locale>} */
 const LOCALES = {
   "ja": {
-    format_value_not_found: "'{name}'という名前の値はありません",
-    format_invalid_spec: "'{spec}'は形式化文字列として不正です",
+    "format.value_not_found": "'{name}'という名前の値はありません",
+    "format.invalid_spec": "'{spec}'は形式化文字列として不正です",
 
-    api_failed: "API呼び出しに失敗しました",
-    api_error: "API呼び出しに失敗しました：{error}",
+    "api.failed": "API呼び出しに失敗しました",
+    "api.error": "API呼び出しに失敗しました：{error}",
 
-    article_restricted: "記事の閲覧が制限されています",
+    "download.restricted": "記事の閲覧が制限されています",
+    "download.failed": "'{url}'のダウンロードに失敗しました",
+    "download.error": "ダウンロード中にエラーが発生しました：{error}",
 
-    download_failed: "'{url}'のダウンロードに失敗しました",
-    download_error: "ダウンロード中にエラーが発生しました：{error}",
-
-    text_download: "ダウンロード",
-    text_download_pending: "ダウンロード待機中（残り{pending}件）",
-    text_download_setup: "ダウンロード準備中...",
-    text_download_progress: "ダウンロード中... （{current} / {total}）",
-    text_download_zip: "ZIPを生成中...",
+    "dl_button.start": "ダウンロード",
+    "dl_button.pending": "ダウンロード待機中（残り{pending}件）",
+    "dl_button.preparing": "ダウンロード準備中...",
+    "dl_button.downloading": "ダウンロード中... （{current} / {total}）",
+    "dl_button.generating_zip": "ZIPを生成中...",
   },
   "en": {
-    format_value_not_found: "No value named '{name}'",
-    format_invalid_spec: "Invalid format '{spec}'",
+    "format.value_not_found": "No value named '{name}'",
+    "format.invalid_spec": "Invalid format '{spec}'",
 
-    api_failed: "Failed to call an API",
-    api_error: "Failed to call an API: {error}",
+    "api.failed": "Failed to call an API",
+    "api.error": "Failed to call an API: {error}",
 
-    article_restricted: "The article is restricted",
+    "download.restricted": "The post is restricted",
+    "download.failed": "Failed to download '{url}'",
+    "download.error": "Error occured during download: {error}",
 
-    download_failed: "Failed to download '{url}'",
-    download_error: "Error occured during download: {error}",
-
-    text_download: "Download",
-    text_download_pending: "Pending downloads ({pending} remaining)",
-    text_download_setup: "Preparing to download...",
-    text_download_progress: "Downloading... ({current} / {total})",
-    text_download_zip: "Generating ZIP...",
+    "dl_button.start": "Download",
+    "dl_button.pending": "Pending downloads ({pending} remaining)",
+    "dl_button.preparing": "Preparing to download...",
+    "dl_button.downloading": "Downloading... ({current} / {total})",
+    "dl_button.generating_zip": "Generating ZIP...",
   },
 };
 
@@ -115,7 +114,7 @@ function easyFormat(fmt, obj) {
      */
     (_, name, spec) => {
       if (!(name in obj)) {
-        throw new Error(localize("format_value_not_found", { name }));
+        throw new Error(localize("format.value_not_found", { name }));
       }
 
       const v = obj[name];
@@ -124,7 +123,7 @@ function easyFormat(fmt, obj) {
       }
 
       if (!/^0\d+$/.test(spec)) {
-        throw new Error(localize("format_invalid_spec", { spec }));
+        throw new Error(localize("format.invalid_spec", { spec }));
       }
 
       const n = Number.parseInt(spec, 10);
@@ -194,7 +193,7 @@ async function download(url) {
     {
       responseType: "arraybuffer",
     },
-    () => localize("download_failed", { url }),
+    () => localize("download.failed", { url }),
   );
 }
 
@@ -340,19 +339,19 @@ const DownloadManager = new class {
         },
         responseType: "json",
       },
-      () => localize("api_failed"),
+      () => localize("api.failed"),
     );
     if ("error" in res) {
-      throw new Error(localize("api_error", { error: res.error }));
+      throw new Error(localize("api.error", { error: res.error }));
     }
 
     const raw = res.body;
     if (!raw) {
-      throw new Error(localize("api_failed"));
+      throw new Error(localize("api.failed"));
     }
 
     if (raw.isRestricted || !raw.body) {
-      throw new Error(localize("article_restricted"));
+      throw new Error(localize("download.restricted"));
     }
 
     let description = "";
@@ -455,7 +454,7 @@ const DownloadManager = new class {
       bin = await zip.generateAsync({ type: "blob" });
     } catch (e) {
       const error = e instanceof Error ? e.message : String(e);
-      throw new Error(localize("download_error", { error }));
+      throw new Error(localize("download.error", { error }));
     }
 
     // fire the download
@@ -499,23 +498,23 @@ class DownloadButton {
     const pending = DownloadManager.queue.findIndex(i => this.postId === i);
     switch (pending) {
       case -1:
-        this.button.textContent = localize("text_download");
+        this.button.textContent = localize("dl_button.start");
         this.button.disabled = false;
         break;
 
       case 0: {
         const { done, total } = DownloadManager.currentStatus;
         this.button.textContent = total === Infinity
-          ? localize("text_download_setup")
+          ? localize("dl_button.preparing")
           : done < total
-            ? localize("text_download_progress", { current: done + 1, total })
-            : localize("text_download_zip");
+            ? localize("dl_button.downloading", { current: done + 1, total })
+            : localize("dl_button.generating_zip");
         this.button.disabled = true;
         break;
       }
 
       default:
-        this.button.textContent = localize("text_download_pending", { pending });
+        this.button.textContent = localize("dl_button.pending", { pending });
         this.button.disabled = true;
         break;
     }
