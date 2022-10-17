@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "noEmit": true,
+    "allowJs": true,
+    "checkJs": true,
+    "target": "es2018",
+    "lib": ["es2018", "dom", "dom.iterable"],
+    "typeRoots": ["./@types"],
+    "strict": true,
+    "noImplicitAny": true,
+    "moduleResolution": "node"
+  },
+  "files": ["./fanboxed.user.js"]
+}

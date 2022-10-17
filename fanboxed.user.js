@@ -11,8 +11,25 @@
 
 const FORMAT_FILENAME = "[{year:04}-{month:02}-{day:02}] [{author}] {title}.zip";
 
-//
+// locale
 
+/**
+ * @typedef {Object} Locale
+ * @property {string} format_value_not_found
+ * @property {string} format_invalid_spec
+ * @property {string} api_failed
+ * @property {string} api_error
+ * @property {string} article_restricted
+ * @property {string} download_failed
+ * @property {string} download_error
+ * @property {string} text_download
+ * @property {string} text_download_pending
+ * @property {string} text_download_setup
+ * @property {string} text_download_progress
+ * @property {string} text_download_zip
+ */
+
+/** @type {Record.<string, Locale>} */
 const LOCALES = {
   "ja": {
     format_value_not_found: "'{name}'という名前の値はありません",
@@ -52,7 +69,15 @@ const LOCALES = {
   },
 };
 
+/**
+ * @type {Locale|undefined}
+ */
 let locale;
+
+/**
+ * @param {keyof Locale} key
+ * @param {Record.<string, Object>} [obj]
+ */
 function localize(key, obj) {
   if (!locale) {
     let lang = navigator.language;
@@ -74,31 +99,55 @@ function localize(key, obj) {
   return obj ? easyFormat(locale[key], obj) : locale[key];
 }
 
+// utils
+
+/**
+ * @param {string} fmt
+ * @param {Record.<string, any>} obj
+ * @returns {string}
+ */
 function easyFormat(fmt, obj) {
-  return fmt.replace(/{([^:}]+)(?::([^}]+))?}/g, (_, name, spec) => {
-    if (!(name in obj)) {
-      throw new Error(localize("format_value_not_found", { name }));
-    }
+  return fmt.replace(
+    /{([^:}]+)(?::([^}]+))?}/g,
+    /**
+     * @param {string} name
+     * @param {string} [spec]
+     */
+    (_, name, spec) => {
+      if (!(name in obj)) {
+        throw new Error(localize("format_value_not_found", { name }));
+      }
 
-    const v = obj[name];
-    if (spec === undefined) {
-      return v;
-    }
+      const v = obj[name];
+      if (spec === undefined) {
+        return v;
+      }
 
-    if (!/^0\d+$/.test(spec)) {
-      throw new Error(localize("format_invalid_spec", { spec }));
-    }
+      if (!/^0\d+$/.test(spec)) {
+        throw new Error(localize("format_invalid_spec", { spec }));
+      }
 
-    const n = Number.parseInt(spec, 10);
-    return v.toString().padStart(n, "0");
-  });
+      const n = Number.parseInt(spec, 10);
+      return v.toString().padStart(n, "0");
+    },
+  );
 }
 
+/**
+ * @param {string} s
+ * @returns {string}
+ */
 function extractExt(s) {
   return s.replace(/^.*\.(\w+)$/, "$1");
 }
 
+/**
+ * @type {HTMLStyleElement|undefined}
+ */
 let style;
+/**
+ * @param {string} css
+ */
 function addStyle(css) {
   if (!style) {
     const head = document.querySelector("head");
@@ -107,12 +156,17 @@ function addStyle(css) {
     }
 
     style = document.createElement("style");
-    style.type = "text/css";
     head.append(style);
   }
   style.append(css + "\n");
 }
 
+/**
+ * @param {string} url
+ * @param {Object} options
+ * @param {() => string} errorMessage
+ * @returns {Promise.<any>}
+ */
 function request(url, options, errorMessage) {
   return new Promise((resolve, reject) => {
     GM.xmlHttpRequest({
@@ -129,7 +183,12 @@ function request(url, options, errorMessage) {
   });
 }
 
+/**
+ * @param {string} url
+ * @returns {Promise.<ArrayBuffer>}
+ */
 async function download(url) {
+  /** @type {ArrayBuffer} */
   return await request(
     url,
     {
@@ -139,23 +198,40 @@ async function download(url) {
   );
 }
 
-//
+// downloader
+
+/**
+ * @typedef {Object} DownloadObserver
+ * @property {boolean} isAlive
+ * @property {(postId: number|null) => void} onProgress
+ */
 
 const DownloadManager = new class {
-  // queue: number[];
-  // observers: DownloadObserver[];
-  // currentStatus: { done: number; total: number; };
-
   constructor() {
+    /**
+     * @readonly
+     * @type {number[]}
+     */
     this.queue = [];
+    /**
+     * @readonly
+     * @type {Array.<DownloadObserver>}
+     */
     this.observers = [];
+    /** @type {{ done: number; total: number; }} */
     this.currentStatus = { done: 0, total: 0 };
   }
 
+  /**
+   * @param {DownloadObserver} observer
+   */
   subscribe(observer) {
     this.observers.push(observer);
   }
 
+  /**
+   * @param {number} postId
+   */
   download(postId) {
     if (this.queue.indexOf(postId) >= 0) {
       return;
@@ -172,11 +248,19 @@ const DownloadManager = new class {
 
   // private
 
+  /**
+   * @private
+   * @param {BeforeUnloadEvent} e
+   */
   _beforeUnload(e) {
     e.preventDefault();
     return e.returnValue = "";
   }
 
+  /**
+   * @private
+   * @param {number|null} postId
+   */
   _notifyProgress(postId) {
     for (let i = 0; i < this.observers.length;) {
       const ob = this.observers[i];
@@ -193,11 +277,19 @@ const DownloadManager = new class {
     }
   }
 
+  /**
+   * @private
+   * @param {string} message
+   */
   _reportError(message) {
     // do not block following downloads
     setTimeout(() => alert(message), 0);
   }
 
+  /**
+   * @private
+   * @returns {Promise.<void>}
+   */
   async _downloadTask() {
     window.addEventListener("beforeunload", this._beforeUnload);
 
@@ -205,7 +297,7 @@ const DownloadManager = new class {
       try {
         await this._downloadPost(this.queue[0]);
       } catch (e) {
-        this._reportError(e.message);
+        this._reportError(e instanceof Error ? e.message : String(e));
       }
 
       this.queue.shift();
@@ -215,7 +307,31 @@ const DownloadManager = new class {
     window.removeEventListener("beforeunload", this._beforeUnload);
   }
 
+  /**
+   * @typedef {object} FanboxPostInfo
+   * @property {string} author
+   * @property {string} title
+
+   * @property {number} year
+   * @property {number} month
+   * @property {number} day
+   * @property {number} hour
+   * @property {number} minute
+
+   * @property {string|null} cover
+   * @property {string} description
+   * @property {string[]} images
+   */
+
+  /**
+   * @private
+   * @param {number} postId
+   * @returns {Promise.<FanboxPostInfo>} info a
+   */
   async _requestInfo(postId) {
+    /**
+     * @type {Post}
+     */
     const res = await request(
       `https://api.fanbox.cc/post.info?postId=${postId}`,
       {
@@ -226,7 +342,7 @@ const DownloadManager = new class {
       },
       () => localize("api_failed"),
     );
-    if (res.error) {
+    if ("error" in res) {
       throw new Error(localize("api_error", { error: res.error }));
     }
 
@@ -235,32 +351,39 @@ const DownloadManager = new class {
       throw new Error(localize("api_failed"));
     }
 
-    if (raw.isRestricted) {
+    if (raw.isRestricted || !raw.body) {
       throw new Error(localize("article_restricted"));
     }
 
     let description = "";
+    /** @type {string[]} */
     let images = [];
-    if (raw.body.blocks) {
-      for (const block of raw.body.blocks) {
-        switch (block.type) {
-          case "header":
-            description += "\n" + block.text + "\n";
-            break;
-          case "p":
-            description += block.text + "\n";
-            break;
-
-          case "image":
-            images.push(raw.body.imageMap[block.imageId].originalUrl);
-            break;
+    switch (raw.type) {
+      case "image":
+        description = raw.body.text;
+        if (raw.body.images) {
+          images = raw.body.images.map(i => i.originalUrl);
         }
-      }
+        break;
+      case "article":
+        for (const block of raw.body.blocks) {
+          switch (block.type) {
+            case "header":
+              description += "\n" + block.text + "\n";
+              break;
 
-      description = description.trim().replace(/\n{3,}/g, "\n\n");
-    } else {
-      description = raw.body.text;
-      images = raw.body.images ? raw.body.images.map(i => i.originalUrl) : [];
+            case "p":
+              description += block.text + "\n";
+              break;
+
+            case "image":
+              images.push(raw.body.imageMap[block.imageId].originalUrl);
+              break;
+          }
+        }
+
+        description = description.trim().replace(/\n{3,}/g, "\n\n");
+        break;
     }
 
     const date = new Date(raw.publishedDatetime);
@@ -280,6 +403,11 @@ const DownloadManager = new class {
     };
   }
 
+  /**
+   * @private
+   * @param {number} postId
+   * @returns {Promise.<void>}
+   */
   async _downloadPost(postId) {
     this.currentStatus = { done: 0, total: Infinity };
 
@@ -290,6 +418,7 @@ const DownloadManager = new class {
     }
     this._notifyProgress(postId);
 
+    /** @type {Blob} */
     let bin;
     try {
       const zip = new JSZip();
@@ -325,7 +454,8 @@ const DownloadManager = new class {
 
       bin = await zip.generateAsync({ type: "blob" });
     } catch (e) {
-      throw new Error(localize("download_error", { error: e.message }));
+      const error = e instanceof Error ? e.message : String(e);
+      throw new Error(localize("download_error", { error }));
     }
 
     // fire the download
@@ -338,13 +468,22 @@ const DownloadManager = new class {
   }
 };
 
-class DownloadButton {
-  // postId: number;
-  // button: HTMLButtonElement;
+// ui
 
+/**
+ * @class
+ * @implements {DownloadObserver}
+ */
+class DownloadButton {
+  /**
+   * @param {number} postId
+   * @param {Element} insertAfter
+   */
   constructor(postId, insertAfter) {
+    /** @type {number} */
     this.postId = postId;
 
+    /** @type {HTMLButtonElement} */
     this.button = document.createElement("button");
     this.button.addEventListener("click", e => {
       e.preventDefault();
@@ -384,10 +523,16 @@ class DownloadButton {
 
   // DownloadObserver
 
+  /**
+   * @type {boolean}
+   */
   get isAlive() {
     return document.contains(this.button);
   }
 
+  /**
+   * @param {number|null} postId
+   */
   onProgress(postId) {
     if (this.postId === postId || postId === null) {
       this.updateText();
@@ -396,6 +541,10 @@ class DownloadButton {
 }
 
 class PostDownloadButton extends DownloadButton {
+  /**
+   * @param {number} postId
+   * @param {Element} insertAfter
+   */
   constructor(postId, insertAfter) {
     super(postId, insertAfter);
 
@@ -404,6 +553,10 @@ class PostDownloadButton extends DownloadButton {
 }
 
 class ListDownloadButton extends DownloadButton {
+  /**
+   * @param {number} postId
+   * @param {Element} insertAfter
+   */
   constructor(postId, insertAfter) {
     super(postId, insertAfter);
 
@@ -411,11 +564,21 @@ class ListDownloadButton extends DownloadButton {
   }
 }
 
+
+// main
+
+/**
+ * @param {string} url
+ * @returns {number|null}
+ */
 function extractPostId(url) {
   const m = url.match(/\/posts\/(\d+)/);
   return m ? Number.parseInt(m[1], 10) : null;
 }
 
+/**
+ * @param {Element} likeButton
+ */
 function handlePostPage(likeButton) {
   if (document.querySelector("article a[href$='/plans']")) {
     return;
@@ -429,6 +592,9 @@ function handlePostPage(likeButton) {
   new PostDownloadButton(postId, likeButton);
 }
 
+/**
+ * @param {NodeListOf.<HTMLAnchorElement>} cards
+ */
 function handleListPage(cards) {
   for (const card of cards) {
     if (card.querySelector(".fanboxed-button")) {
@@ -491,6 +657,7 @@ const observer = new MutationObserver(() => {
     return handlePostPage(likeButton);
   }
 
+  /** @type {NodeListOf.<HTMLAnchorElement>} */
   const cards = document.querySelectorAll(`
     #root > div > div > div > div > div > div > div > div > a,
     #root > div > div > div > div > div > div > div > a
