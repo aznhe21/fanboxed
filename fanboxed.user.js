@@ -10,6 +10,7 @@
 // ==/UserScript==
 
 const FORMAT_FILENAME = "[{year:04}-{month:02}-{day:02}] [{author}] {title}.zip";
+const INCLUDE_FILES = false;
 
 // locale
 
@@ -364,6 +365,14 @@ const DownloadManager = new class {
           images = raw.body.images.map(i => i.originalUrl);
         }
         break;
+
+      case "file":
+        description = raw.body.text;
+        if (INCLUDE_FILES && raw.body.files) {
+          images = raw.body.files.map(f => f.url);
+        }
+        break;
+
       case "article":
         for (const block of raw.body.blocks) {
           switch (block.type) {
@@ -377,6 +386,12 @@ const DownloadManager = new class {
 
             case "image":
               images.push(raw.body.imageMap[block.imageId].originalUrl);
+              break;
+
+            case "file":
+              if (INCLUDE_FILES) {
+                images.push(raw.body.fileMap[block.fileId].url);
+              }
               break;
           }
         }
