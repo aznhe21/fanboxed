@@ -14,6 +14,9 @@ interface XhrResponse {
 }
 
 interface Greasemonkey {
+  getValue(name: string): Promise<string | number | boolean | undefined>;
+  getValue(name: string, defaultValue: string | number | boolean): Promise<string | number | boolean>;
+  setValue(name: string, value: string | number | boolean): Promise<void>;
   xmlHttpRequest(details: XhrDetails): void;
 }
 

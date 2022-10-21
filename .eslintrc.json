@@ -2,7 +2,7 @@
   "extends": "eslint:recommended",
   "root": true,
   "env": {
-    "es2018": true,
+    "es2022": true,
     "browser": true,
     "greasemonkey": true
   },
@@ -15,7 +15,7 @@
     "no-console": "error",
     "no-empty": ["error", {"allowEmptyCatch": true}],
     "no-unused-vars": ["error", {"argsIgnorePattern": "^_"}],
-    "quotes": ["error", "double"],
+    "quotes": ["error", "double", {"avoidEscape": true}],
     "semi": ["error", "always"]
   }
 }
