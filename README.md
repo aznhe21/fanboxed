@@ -1,6 +1,6 @@
 # Fanboxed - Fanbox Downloader
 
-![Demo video](./fanboxed.gif)
+![デモ動画](https://user-images.githubusercontent.com/2226696/197357398-34db9964-712a-402d-a552-bafa904efb1c.gif)
 
 Fanboxの各記事をZIPファイルとしてダウンロードするためのユーザースクリプトです。
 
