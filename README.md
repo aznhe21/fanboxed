@@ -27,24 +27,30 @@ ZIPファイルは下記のような構造で構成されます。
 ┗ page_xxx.png　　 ファイルは先頭から連番で保存されます
 </pre>
 
-### ZIPのファイル名
+## 設定
+
+![設定画面](https://user-images.githubusercontent.com/2226696/197357429-c764882d-b5fa-46f1-b401-1f24e9505fa8.png)
+
+設定画面は**投稿ページ**のダウンロードボタン横にある歯車ボタンから開けます。
+
+### ファイル名の形式
 
 ZIPファイルは、デフォルトでは「[2020-12-23] [作者名] 記事タイトル.zip」といった形式のファイル名で保存されます。
-このファイル名はスクリプト冒頭の`const FORMAT_FILENAME = "なんたらかんたら.zip";`の部分を書き換えることで変更できます。
-以下のように書き換えてみてください。
+この設定項目を変更することで、保存されるZIPのファイル名を変更することができます。
 
-（ただしスクリプトを書き換える都合上、アップデートや再インストール時にはリセットされてしまうため注意してください。
-設定画面はそのうち作ると思います）
+デフォルト：[2020-12-23] [作者名] タイトル.zip
+```
+[{year:04}-{month:02}-{day:02}] [{author}] {title}.zip
+```
 
-```javascript
-// デフォルト：[2020-12-23] [作者名] タイトル
-const FORMAT_FILENAME = "[{year:04}-{month:02}-{day:02}] [{author}] {title}.zip";
+作者名を削る：[2020-12-23] タイトル.zip
+```
+[{year:04}-{month:02}-{day:02}] {title}.zip
+```
 
-// 作者名を削る：[2020-12-23] タイトル
-const FORMAT_FILENAME = "[{year:04}-{month:02}-{day:02}] {title}.zip";
-
-// 日付に加えて時分も入れてみる：[2020-12-23 0000] タイトル
-const FORMAT_FILENAME = "[{year:04}-{month:02}-{day:02} {hour:02}{minute:02}] {title}.zip";
+日付に加えて時分も入れてみる：[2020-12-23 0000] タイトル.zip
+```
+[{year:04}-{month:02}-{day:02} {hour:02}{minute:02}] {title}.zip
 ```
 
 形式化文字列はPython風ですが、書式指定は今のところゼロ埋め（`:0XXX`の形）にのみ対応しています。使用できる変数は以下の通りです。
@@ -57,6 +63,11 @@ const FORMAT_FILENAME = "[{year:04}-{month:02}-{day:02} {hour:02}{minute:02}] {t
 | `day`    | 記事投稿日   |
 | `hour`   | 記事投稿時   |
 | `minute` | 記事投稿分   |
+
+### 添付ファイルを含める
+
+チェックを付けると、投稿に添付されたファイルを含めてダウンロードすることができます。
+動画ファイルが添付されている場合などに便利です。
 
 [Greasemonkey]: https://addons.mozilla.org/ja/firefox/addon/greasemonkey/
 [Violentmonkey]: https://violentmonkey.github.io/
