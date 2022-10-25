@@ -69,6 +69,25 @@ ZIPファイルは、デフォルトでは「[2020-12-23] [作者名] 記事タ�
 チェックを付けると、投稿に添付されたファイルを含めてダウンロードすることができます。
 動画ファイルが添付されている場合などに便利です。
 
+## FAQ
+
+### FirefoxでZIPの生成が遅い
+
+スクリプト冒頭の`// @require`から始まる行の`3.9.1`を`3.10.1`に書き換えることで早くなります。
+なお、Chromium系でこの書き換えをするとスクリプトが動作しなくなるため書き換えないでください。
+
+BEFORE
+
+```javascript
+// @require     https://cdnjs.cloudflare.com/ajax/libs/jszip/3.9.1/jszip.min.js
+```
+
+AFTER
+
+```javascript
+// @require     https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js
+```
+
 [Greasemonkey]: https://addons.mozilla.org/ja/firefox/addon/greasemonkey/
 [Violentmonkey]: https://violentmonkey.github.io/
 [Tampermonkey]: https://www.tampermonkey.net/
